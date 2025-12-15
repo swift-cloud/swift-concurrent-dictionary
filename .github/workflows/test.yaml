@@ -1,0 +1,20 @@
+name: Test
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        swift: ["6.2"]
+
+    container: swift:${{ matrix.swift }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: swift --version
+
+      - run: swift test
