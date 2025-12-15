@@ -157,8 +157,7 @@ actor DataService {
     }
     
     func clearCache() {
-        // Note: This requires iterating keys, which isn't directly supported
-        // Consider adding a removeAll() method if needed
+        cache.removeAll()
     }
 }
 ```
