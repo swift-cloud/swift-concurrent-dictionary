@@ -23,8 +23,8 @@ A high-performance, thread-safe dictionary for Swift using striped locking for m
 
 ## Requirements
 
-- Swift 6.0+
-- macOS 15.0+ / iOS 18.0+ / tvOS 18.0+ / watchOS 11.0+
+- Swift 6.2+
+- macOS 26.0+ / iOS 26.0+ / tvOS 26.0+ / watchOS 26.0+
 
 ## Installation
 
