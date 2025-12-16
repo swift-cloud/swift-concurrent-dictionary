@@ -2,13 +2,24 @@
 
 A high-performance, thread-safe dictionary for Swift using striped locking for minimal contention.
 
+## Designed for Swift Concurrency
+
+`ConcurrentDictionary` is built from the ground up for Swift's modern concurrency model. Unlike standard dictionaries that require manual synchronization with actors or locks, this implementation is fully `Sendable` and can be safely shared across tasks, actors, and isolation boundaries without additional wrapper code.
+
+**Why it's a great fit for Swift concurrency:**
+
+- **Zero boilerplate** - Use directly in `async` functions and task groups without `await` or actor isolation
+- **No actor bottlenecks** - Striped locking allows true parallel access, avoiding the serialization overhead of actor-based solutions
+- **Synchronous API** - All operations are non-async, eliminating unnecessary suspension points
+- **`Sendable` by default** - Pass freely between isolation domains with compile-time safety guarantees
+
 ## Features
 
 - Thread-safe read and write access from multiple concurrent tasks
-- Striped locking strategy for high throughput
+- Striped locking strategy for high throughput under contention
 - Compile-time configurable stripe count
 - Zero dependencies beyond Swift standard library and [XXH3](https://github.com/swift-cloud/swift-xxh3)
-- Full `Sendable` conformance
+- Full `Sendable` conformance for seamless use across isolation boundaries
 
 ## Requirements
 
@@ -117,17 +128,18 @@ counters.incrementValue(forKey: "page_views", by: -1)
 let views = counters.incrementValue(forKey: "api_calls", by: 1) // Returns 1
 ```
 
-### Concurrent Access
+### Swift Concurrency Integration
 
-The dictionary is safe to use from multiple concurrent tasks:
+The dictionary is `Sendable` and designed for direct use with structured concurrency:
 
 ```swift
 let metrics = ConcurrentDictionary<16, String, Int>()
 
+// Use directly in task groups - no actor wrapper needed
 await withTaskGroup(of: Void.self) { group in
-    // Spawn 1000 concurrent tasks
     for i in 0..<1000 {
         group.addTask {
+            // Synchronous access from concurrent tasks
             metrics.incrementValue(forKey: "requests", by: 1)
             metrics["task-\(i)"] = i
         }
@@ -138,14 +150,46 @@ print("Total requests: \(metrics["requests", default: 0])")
 print("Total entries: \(metrics.count)")
 ```
 
+### Sharing Across Actors
+
+Unlike regular dictionaries, `ConcurrentDictionary` can be shared across actor boundaries:
+
+```swift
+actor MetricsCollector {
+    let store = ConcurrentDictionary<16, String, Int>()
+    
+    func record(_ event: String) {
+        store.incrementValue(forKey: event, by: 1)
+    }
+}
+
+actor RequestHandler {
+    let metrics: ConcurrentDictionary<16, String, Int>
+    
+    init(metrics: ConcurrentDictionary<16, String, Int>) {
+        self.metrics = metrics  // Safe to share - it's Sendable
+    }
+    
+    func handleRequest() {
+        metrics.incrementValue(forKey: "requests", by: 1)
+    }
+}
+
+// Share the same dictionary across actors
+let sharedMetrics = ConcurrentDictionary<16, String, Int>()
+let collector = MetricsCollector()
+let handler = RequestHandler(metrics: sharedMetrics)
+```
+
 ### Cache Pattern
 
 ```swift
-actor DataService {
+// No actor needed - ConcurrentDictionary handles synchronization internally
+final class DataService: Sendable {
     private let cache = ConcurrentDictionary<32, URL, Data>()
     
     func fetchData(from url: URL) async throws -> Data {
-        // Check cache first
+        // Synchronous cache check - no await needed
         if let cached = cache[url] {
             return cached
         }
@@ -192,6 +236,8 @@ The stripe count determines the level of parallelism:
 2. **Choose appropriate stripe count** - Too few causes contention, too many wastes memory
 3. **Use `getOrSetValue` for caches** - Provides atomic get-or-insert semantics
 4. **Use `incrementValue` for counters** - Atomic increment without race conditions
+5. **Prefer over actor-wrapped dictionaries** - When you need shared mutable state accessed from multiple isolation domains, `ConcurrentDictionary` avoids actor hop overhead
+6. **Use with `Sendable` types** - Both keys and values must be `Sendable` for compile-time thread safety
 
 ## License
 
