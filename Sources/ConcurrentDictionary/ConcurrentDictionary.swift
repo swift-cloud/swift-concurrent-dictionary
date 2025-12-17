@@ -497,3 +497,13 @@ extension ConcurrentDictionary: ExpressibleByDictionaryLiteral {
         }
     }
 }
+
+// MARK: - CustomDebugStringConvertible
+
+extension ConcurrentDictionary: CustomDebugStringConvertible {
+
+    /// A textual representation of the dictionary for debugging purposes.
+    public var debugDescription: String {
+        return "ConcurrentDictionary<\(count), [\(Key.self): \(Value.self)]>"
+    }
+}

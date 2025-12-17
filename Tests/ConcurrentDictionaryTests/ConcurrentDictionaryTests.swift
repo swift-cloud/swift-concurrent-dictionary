@@ -1,3 +1,4 @@
+import Foundation
 import Synchronization
 import Testing
 
@@ -111,4 +112,46 @@ import Testing
             }
         }
     }
+}
+
+@Test func timing() async throws {
+    let a = ConcurrentDictionary<128, Int, String>()
+    await processAcrossCores(name: "\(a)") { i in
+        a[i] = "\(i)".uppercased().lowercased()
+    }
+
+    let b = ConcurrentDictionary<1, Int, String>()
+    await processAcrossCores(name: "\(b)") { i in
+        b[i] = "\(i)".uppercased().lowercased()
+    }
+}
+
+func processAcrossCores(
+    name: String,
+    total: Int = 10_000_000,
+    operation: @Sendable @escaping (Int) async -> Void
+) async {
+    await logExecutionTime(name) {
+        await withTaskGroup(of: Void.self) { tg in
+            let cores = ProcessInfo.processInfo.activeProcessorCount
+            let tasksPerCore = total / cores
+            for i in 0..<cores {
+                tg.addTask {
+                    let start = i * tasksPerCore
+                    let end = (i + 1) * tasksPerCore
+                    for j in start..<end {
+                        await operation(j)
+                    }
+                }
+            }
+        }
+    }
+}
+
+func logExecutionTime(_ log: String, block: () async -> Void) async {
+    let start = DispatchTime.now()
+    await block()
+    let end = DispatchTime.now()
+    let diff = Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000_000
+    print(log, ":", String(format: "%.3f", diff), "seconds")
 }
